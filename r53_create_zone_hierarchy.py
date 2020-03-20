@@ -10,7 +10,6 @@ all needed parent child zone pairs.
 
 import os
 import sys
-import pprint
 import random
 import boto3
 import dns.name
@@ -22,6 +21,8 @@ NS_TTL = 172800
 
 class Zone:
 
+    """Zone class: name, zoneid, nameserver set"""
+
     def __init__(self, name, zoneid, nsset, caller_ref):
         self.name = name
         self.zoneid = zoneid
@@ -32,8 +33,8 @@ class Zone:
     def info(self):
         print(self)
         print("Nameservers:")
-        for ns in self.nsset:
-            print("\t{}".format(ns))
+        for nameserver in self.nsset:
+            print("\t{}".format(nameserver))
 
     def __str__(self):
         return "<Zone: {} Id: {}>".format(self.name, self.zoneid)
@@ -41,12 +42,14 @@ class Zone:
 
 class ChangeBatch:
 
+    """Class to define a Route53 ChangeBatch structure"""
+
     def __init__(self):
-        self.data = { 'Changes': [] }
+        self.data = {'Changes': []}
         return
 
     def create(self, rrname, rrtype, ttl, rdatalist):
-        d = {
+        change = {
             'Action': 'CREATE',
             'ResourceRecordSet': {
                 'Name': rrname,
@@ -55,11 +58,11 @@ class ChangeBatch:
                 'ResourceRecords': [{'Value': x} for x in rdatalist]
             }
         }
-        self.data['Changes'].append(d)
+        self.data['Changes'].append(change)
 
 
 def get_caller_ref(prefix=CALLER_REF_PREFIX):
-    return "{}.{:05d}".format(prefix, random.randint(1,10000))
+    return "{}.{:05d}".format(prefix, random.randint(1, 10000))
 
 
 def create_zone(r53client, zonename):
@@ -99,18 +102,17 @@ def add_delegation(r53client, parent, child, ttl=NS_TTL):
     return True
 
 
-def in_zonelist(zonename, zones):
+def in_zonelist(zonename, zonelist):
 
     """
     If zonename corresponds to one of the zone objects in the zones list,
     return the zone object, else None
     """
 
-    for zone in zones:
+    for zone in zonelist:
         if zonename == zone.name:
             return zone
-    else:
-        return None
+    return None
 
 
 def delegation_list(zones):
@@ -123,9 +125,9 @@ def delegation_list(zones):
         p = zone.name
         while p != dns.name.root:
             x = p.parent()
-            parentzone = in_zonelist(x, zones)
-            if parentzone is not None:
-                delegations.append((zone, parentzone))
+            parent = in_zonelist(x, zones)
+            if parent is not None:
+                delegations.append((parent, zone))
                 break
             p = x
 
@@ -150,9 +152,9 @@ if __name__ == '__main__':
         zones.append(zone)
         zone.info()
 
-    for child, parent in delegation_list(zones):
+    for parentzone, childzone in delegation_list(zones):
         print("Creating delegation: {} -> {}".format(
-            parent.name, child.name))
-        if not add_delegation(client, parent, child):
+            parentzone.name, childzone.name))
+        if not add_delegation(client, parentzone, childzone):
             print("Failed to add delegation: {} -> {}".format(
-                parent.name, child.name))
+                parentzone.name, childzone.name))
