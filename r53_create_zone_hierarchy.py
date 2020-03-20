@@ -117,19 +117,22 @@ def in_zonelist(zonename, zonelist):
 
 def delegation_list(zones):
 
-    """Generate list of delegations needed from zone list"""
+    """
+    Generate list of delegations needed from zone list. For each
+    zone find the closest ancestor zone, if it exists in the list.
+    """
 
     delegations = []
 
     for zone in zones:
-        p = zone.name
-        while p != dns.name.root:
-            x = p.parent()
-            parent = in_zonelist(x, zones)
+        zonename = zone.name
+        while zonename != dns.name.root:
+            ancestorname = zonename.parent()
+            parent = in_zonelist(ancestorname, zones)
             if parent is not None:
                 delegations.append((parent, zone))
                 break
-            p = x
+            zonename = ancestorname
 
     return delegations
 
