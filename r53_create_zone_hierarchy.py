@@ -149,8 +149,9 @@ if __name__ == '__main__':
         zone_name = dns.name.from_text(zone_name)
         print("Creating zone: {}".format(zone_name))
         zone = create_zone(client, zone_name)
-        zones.append(zone)
-        zone.info()
+        if zone:
+            zones.append(zone)
+            zone.info()
 
     for parentzone, childzone in delegation_list(zones):
         print("Creating delegation: {} -> {}".format(
