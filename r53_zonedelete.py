@@ -1,20 +1,6 @@
 #!/usr/bin/env python3
 #
 
-"""
-{'ChangeInfo': {'Id': '/change/C0803930U8ZMSM12HP49',
-                'Status': 'PENDING',
-                'SubmittedAt': datetime.datetime(2020, 3, 19, 0, 5, 53, 309000, tzinfo=tzutc())},
- 'ResponseMetadata': {'HTTPHeaders': {'content-length': '266',
-                                      'content-type': 'text/xml',
-                                      'date': 'Thu, 19 Mar 2020 00:05:53 GMT',
-                                      'x-amzn-requestid': 'ead29fea-0daa-4633-b709-9665f27611a6'},
-                      'HTTPStatusCode': 200,
-                      'RequestId': 'ead29fea-0daa-4633-b709-9665f27611a6',
-                      'RetryAttempts': 0}}
-
-"""
-
 import os, sys, boto3, pprint, random
 
 
