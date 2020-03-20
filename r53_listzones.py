@@ -9,7 +9,11 @@ MAXITEMS = '100'
 
 def print_zones(response):
     for zone in response['HostedZones']:
-        print("{} {}".format(zone['Name'], zone['Id']))
+        print("{} {} {} {}".format(
+            zone['Name'],
+            zone['Id'],
+            "private" if zone['Config']['PrivateZone'] else "public",
+            zone['ResourceRecordSetCount']))
 
 
 if __name__ == '__main__':
