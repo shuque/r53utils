@@ -106,7 +106,6 @@ def do_zones(r53client, response, zonelist):
     for zone in response['HostedZones']:
         if zone['Name'] in zonelist:
             delete_zone(r53client, zone['Name'], zone['Id'])
-            print('')
     return
 
 
