@@ -86,15 +86,12 @@ def delete_all_rrsets(r53client, zone, zoneid):
     """Delete all RRsets except apex SOA/NS (pre-req for zone deletion)"""
 
     for rrset in get_next_rrset(r53client, zoneid):
-        print("Check:", zone, rrset)
         if (rrset['Name'] == zone) and (rrset['Type'] in ['SOA', 'NS']):
             continue
-        print("DELETE:", rrset)
         delete_rrset(r53client, zoneid, rrset)
 
 
 def delete_zone(r53client, zone, zoneid):
-    print(" ---> DELETE ZONE: {} {}".format(zone, zoneid))
     delete_all_rrsets(r53client, zone, zoneid)
     response = r53client.delete_hosted_zone(Id=zoneid)
     status = response['ResponseMetadata']['HTTPStatusCode']
