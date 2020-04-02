@@ -1,17 +1,32 @@
 #!/usr/bin/env python3
 #
-# Returns at most 100 records
-#
 
-import os, sys, boto3, pprint
+"""
+Given a Route53 zoneid, print all the resource record sets in the zone.
+
+"""
+
+
+import sys
+import pprint
+import boto3
+
 
 # Can't exceed 100
 MAXITEMS = '50'
 
 
-def print_rrsets(response):
-    for r in response['ResourceRecordSets']:
+def print_rrsets(rrsets):
+    """Print rrsets"""
+
+    for r in rrsets:
         pprint.pprint(r)
+
+
+def status(http_response):
+    """return response HTTP status code"""
+
+    return http_response['ResponseMetadata']['HTTPStatusCode']
 
 
 if __name__ == '__main__':
@@ -19,18 +34,16 @@ if __name__ == '__main__':
     client = boto3.client('route53')
     zoneid = sys.argv[1]
 
-    response = client.list_resource_record_sets(
-        HostedZoneId=zoneid,
-        MaxItems=MAXITEMS)
-    print_rrsets(response)
+    kwargs = dict(HostedZoneId=zoneid, MaxItems=MAXITEMS)
 
-    truncated = response['IsTruncated']
-
-    while truncated:
-        response = client.list_resource_record_sets(
-            HostedZoneId=zoneid,
-            MaxItems=MAXITEMS,
-            StartRecordName=response['NextRecordName'],
-            StartRecordType=response['NextRecordType'])
-        print_rrsets(response)
-        truncated = response['IsTruncated']
+    while True:
+        response = client.list_resource_record_sets(**kwargs)
+        if status(response) != 200:
+            raise Exception("list_resource_record_sets() error: {}".format(
+                response))
+        print_rrsets(response['ResourceRecordSets'])
+        if response['IsTruncated']:
+            kwargs['StartRecordName'] = response['NextRecordName']
+            kwargs['StartRecordType'] = response['NextRecordType']
+        else:
+            break
