@@ -20,7 +20,6 @@ MAXITEMS = '100'
 
 
 class ChangeBatch:
-
     """Class to define a Route53 ChangeBatch structure"""
 
     def __init__(self):
@@ -36,8 +35,7 @@ class ChangeBatch:
 
 
 def delete_rrset(r53client, zoneid, rrset):
-
-    """Delete RRset"""
+    """Delete RRset from specified zone"""
 
     cb = ChangeBatch()
     cb.delete(rrset)
@@ -46,43 +44,38 @@ def delete_rrset(r53client, zoneid, rrset):
         HostedZoneId=zoneid,
         ChangeBatch=cb.data)
 
-    status = response['ResponseMetadata']['HTTPStatusCode']
-    if status != 200:
-        print("Delete rrset failed: {}".format(rrset))
-        return False
+    if status(response) != 200:
+        raise Exception("Delete rrset failed: {}".format(rrset))
 
-    return True
-
-
-def get_next_rrset(r53client, zoneid):
-    truncated = False
-    while True:
-        if not truncated:
-            response = r53client.list_resource_record_sets(
-                HostedZoneId=zoneid,
-                MaxItems=MAXITEMS)
-        else:
-            response = r53client.list_resource_record_sets(
-                HostedZoneId=zoneid,
-                MaxItems=MAXITEMS,
-                StartRecordName=response['NextRecordName'],
-                StartRecordType=response['NextRecordType'])
-
-        status = response['ResponseMetadata']['HTTPStatusCode']
-        if status != 200:
-            print("ERROR: list_resource_record_sets() failed.")
-            return
-
-        for r in response['ResourceRecordSets']:
-            yield r
-        truncated = response['IsTruncated']
-        if not truncated:
-            break
     return
 
 
-def delete_all_rrsets(r53client, zone, zoneid):
+def status(http_response):
+    """return response HTTP status code"""
 
+    return http_response['ResponseMetadata']['HTTPStatusCode']
+
+
+def get_next_rrset(r53client, zoneid):
+    """Get next rrset in the zone"""
+
+    kwargs = dict(HostedZoneId=zoneid, MaxItems=MAXITEMS)
+    while True:
+        response = r53client.list_resource_record_sets(**kwargs)
+        if status(response) != 200:
+            raise Exception("ERROR: list_resource_record_sets() failed.")
+
+        for r in response['ResourceRecordSets']:
+            yield r
+
+        if response['IsTruncated']:
+            kwargs['StartRecordName'] = response['NextRecordName']
+            kwargs['StartRecordType'] = response['NextRecordType']
+        else:
+            break
+
+
+def delete_all_rrsets(r53client, zone, zoneid):
     """Delete all RRsets except apex SOA/NS (pre-req for zone deletion)"""
 
     for rrset in get_next_rrset(r53client, zoneid):
@@ -92,19 +85,23 @@ def delete_all_rrsets(r53client, zone, zoneid):
 
 
 def delete_zone(r53client, zone, zoneid):
+    """Delete zone identified by given zoneid"""
+
     delete_all_rrsets(r53client, zone, zoneid)
     response = r53client.delete_hosted_zone(Id=zoneid)
-    status = response['ResponseMetadata']['HTTPStatusCode']
-    if status != 200:
-        print("ERROR: zone deletion failed: {} {}".format(zone, zoneid))
+    if status(response) != 200:
+        raise Exception("ERROR: zone deletion failed: {} {}".format(
+            zone, zoneid))
     else:
         print("DELETED zone: {} {}".format(zone, zoneid))
     return
 
 
-def do_zones(r53client, response, zonelist):
-    for zone in response['HostedZones']:
-        if zone['Name'] in zonelist:
+def delete_zonelist(r53client, hostedzonelist, zones_to_delete):
+    """Delete all zones in given zonelist"""
+
+    for zone in hostedzonelist:
+        if zone['Name'] in zones_to_delete:
             delete_zone(r53client, zone['Name'], zone['Id'])
     return
 
@@ -119,14 +116,12 @@ if __name__ == '__main__':
 
     client = boto3.client('route53')
 
-    response = client.list_hosted_zones_by_name(MaxItems=MAXITEMS)
-    do_zones(client, response, ZONES)
-
-    truncated = response['IsTruncated']
-    while truncated:
-        response = client.list_hosted_zones_by_name(
-            HostedZoneId=response['NextHostedZoneId'],
-            DNSName=response['NextDNSName'],
-            MaxItems=MAXITEMS)
-        do_zones(client, response, ZONES)
-        truncated = response['IsTruncated']
+    kwargs = dict(MaxItems=MAXITEMS)
+    while True:
+        response = client.list_hosted_zones_by_name(**kwargs)
+        delete_zonelist(client, response['HostedZones'], ZONES)
+        if response['IsTruncated']:
+            kwargs['HostedZoneId'] = response['NextHostedZoneId']
+            kwargs['DNSName'] = response['NextDNSName']
+        else:
+            break
