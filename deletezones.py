@@ -13,96 +13,14 @@ pre-requisite to Route53's zone deletion operation.
 """
 
 import sys
-import boto3
-
-
-MAXITEMS = '100'
-
-
-class ChangeBatch:
-    """Class to define a Route53 ChangeBatch structure"""
-
-    def __init__(self):
-        self.data = {'Changes': []}
-        return
-
-    def delete(self, rrset):
-        change = {
-            'Action': 'DELETE',
-            'ResourceRecordSet': rrset
-        }
-        self.data['Changes'].append(change)
-
-
-def delete_rrset(r53client, zoneid, rrset):
-    """Delete RRset from specified zone"""
-
-    cb = ChangeBatch()
-    cb.delete(rrset)
-
-    response = r53client.change_resource_record_sets(
-        HostedZoneId=zoneid,
-        ChangeBatch=cb.data)
-
-    if status(response) != 200:
-        raise Exception("Delete rrset failed: {}".format(rrset))
-
-    return
-
-
-def status(http_response):
-    """return response HTTP status code"""
-
-    return http_response['ResponseMetadata']['HTTPStatusCode']
-
-
-def get_next_rrset(r53client, zoneid):
-    """Get next rrset in the zone"""
-
-    kwargs = dict(HostedZoneId=zoneid, MaxItems=MAXITEMS)
-    while True:
-        response = r53client.list_resource_record_sets(**kwargs)
-        if status(response) != 200:
-            raise Exception("ERROR: list_resource_record_sets() failed.")
-
-        for r in response['ResourceRecordSets']:
-            yield r
-
-        if response['IsTruncated']:
-            kwargs['StartRecordName'] = response['NextRecordName']
-            kwargs['StartRecordType'] = response['NextRecordType']
-        else:
-            break
-
-
-def delete_all_rrsets(r53client, zone, zoneid):
-    """Delete all RRsets except apex SOA/NS (pre-req for zone deletion)"""
-
-    for rrset in get_next_rrset(r53client, zoneid):
-        if (rrset['Name'] == zone) and (rrset['Type'] in ['SOA', 'NS']):
-            continue
-        delete_rrset(r53client, zoneid, rrset)
+import r53utils
 
 
 def delete_zone(r53client, zone, zoneid):
     """Delete zone identified by given zoneid"""
-
-    delete_all_rrsets(r53client, zone, zoneid)
-    response = r53client.delete_hosted_zone(Id=zoneid)
-    if status(response) != 200:
-        raise Exception("ERROR: zone deletion failed: {} {}".format(
-            zone, zoneid))
-    else:
-        print("DELETED zone: {} {}".format(zone, zoneid))
-    return
-
-
-def delete_zonelist(r53client, hostedzonelist, zones_to_delete):
-    """Delete all zones in given zonelist"""
-
-    for zone in hostedzonelist:
-        if zone['Name'] in zones_to_delete:
-            delete_zone(r53client, zone['Name'], zone['Id'])
+    r53utils.empty_zone(r53client, zoneid, zonename=zone)
+    r53utils.delete_zone(r53client, zoneid)
+    print("DELETED zone: {} {}".format(zone, zoneid))
     return
 
 
@@ -114,14 +32,7 @@ if __name__ == '__main__':
             zonename += "."
         ZONES.append(zonename)
 
-    client = boto3.client('route53')
-
-    kwargs = dict(MaxItems=MAXITEMS)
-    while True:
-        response = client.list_hosted_zones_by_name(**kwargs)
-        delete_zonelist(client, response['HostedZones'], ZONES)
-        if response['IsTruncated']:
-            kwargs['HostedZoneId'] = response['NextHostedZoneId']
-            kwargs['DNSName'] = response['NextDNSName']
-        else:
-            break
+    client = r53utils.get_client()
+    for zone in r53utils.generator_hosted_zones(client):
+        if zone['Name'] in ZONES:
+            delete_zone(client, zone['Name'], zone['Id'])
