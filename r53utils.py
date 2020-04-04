@@ -99,6 +99,22 @@ class ChangeBatch:
         return self.datadict
 
 
+def name_to_zoneid(client, zonename):
+    """Return zoneid for the given zone name"""
+
+    zoneid_set = []
+    for zone in generator_hosted_zones(client):
+        if zone['Name'] == zonename:
+            zoneid_set.append(zone['Id'])
+    count = len(zoneid_set)
+    if count == 1:
+        return zoneid_set[0]
+    elif count == 0:
+        raise Exception("Zone {} not found".format(zonename))
+    else:
+        raise Exception("Multiple zone ids found: {}".format(zoneid_set))
+
+
 def get_rrset(client, zoneid, rrname, rrtype):
     """given zoneid, get specified RRset by name and type"""
 
