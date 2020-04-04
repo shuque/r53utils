@@ -11,12 +11,11 @@ all needed parent child zone pairs.
 import os
 import sys
 import random
-import boto3
 import dns.name
+import r53utils
 
 
-CALLER_REF_PREFIX = "foobar"
-NS_TTL = 172800
+NS_TTL = 86400
 
 
 class Zone:
@@ -40,66 +39,17 @@ class Zone:
         return "<Zone: {} Id: {}>".format(self.name, self.zoneid)
 
 
-class ChangeBatch:
-
-    """Class to define a Route53 ChangeBatch structure"""
-
-    def __init__(self):
-        self.data = {'Changes': []}
-        return
-
-    def create(self, rrname, rrtype, ttl, rdatalist):
-        change = {
-            'Action': 'CREATE',
-            'ResourceRecordSet': {
-                'Name': rrname,
-                'Type': rrtype,
-                'TTL': ttl,
-                'ResourceRecords': [{'Value': x} for x in rdatalist]
-            }
-        }
-        self.data['Changes'].append(change)
-
-
-def get_caller_ref(prefix=CALLER_REF_PREFIX):
-    return "{}.{:05d}".format(prefix, random.randint(1, 10000))
-
-
-def create_zone(r53client, zonename):
-
-    """Create zone in Route53"""
-
-    caller_ref = get_caller_ref()
-    response = r53client.create_hosted_zone(Name=zonename.to_text(),
-                                            CallerReference=caller_ref)
-    status = response['ResponseMetadata']['HTTPStatusCode']
-    if status != 201:
-        print("create_zone() {} failed".format(zonename.to_text()))
-        return None
-
-    return Zone(name=zonename,
-                zoneid=response['HostedZone']['Id'],
-                nsset=response['DelegationSet']['NameServers'],
-                caller_ref=caller_ref)
-
-
 def add_delegation(r53client, parent, child, ttl=NS_TTL):
-
     """Add delegation NS record set in parent zone to child"""
 
-    cb = ChangeBatch()
+    cb = r53utils.ChangeBatch()
     cb.create(child.name.to_text(), 'NS', ttl, child.nsset)
 
-    response = r53client.change_resource_record_sets(
-        HostedZoneId=parent.zoneid,
-        ChangeBatch=cb.data)
-
-    status = response['ResponseMetadata']['HTTPStatusCode']
-    if status != 200:
-        print("Adding child delegation failed: {}".format(child.name.to_text()))
-        return False
-
-    return True
+    try:
+        r53utils.change_rrsets(r53client, parent.zoneid, cb)
+    except Exception as e:
+        print("Adding delegation for {} failed: {}".format(
+            child.name.to_text(), e))
 
 
 def in_zonelist(zonename, zonelist):
@@ -144,21 +94,19 @@ if __name__ == '__main__':
             os.path.basename(sys.argv[0])))
         sys.exit(1)
 
-    client = boto3.client('route53')
+    client = r53utils.get_client()
 
     zones = []
-
     for zone_name in sys.argv[1:]:
         zone_name = dns.name.from_text(zone_name)
         print("Creating zone: {}".format(zone_name))
-        zone = create_zone(client, zone_name)
-        if zone:
-            zones.append(zone)
-            zone.info()
+        zoneid, ns_set, caller_ref = r53utils.create_zone(client,
+                                                          zone_name.to_text())
+        zone = Zone(zone_name, zoneid, ns_set, caller_ref)
+        zones.append(zone)
+        zone.info()
 
     for parentzone, childzone in delegation_list(zones):
         print("Creating delegation: {} -> {}".format(
             parentzone.name, childzone.name))
-        if not add_delegation(client, parentzone, childzone):
-            print("Failed to add delegation: {} -> {}".format(
-                parentzone.name, childzone.name))
+        add_delegation(client, parentzone, childzone)
