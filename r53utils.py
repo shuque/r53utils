@@ -71,7 +71,6 @@ class ChangeBatch:
 
     def create(self, rrname, rrtype, ttl, rdatalist):
         """create operation"""
-
         change = {
             'Action': 'CREATE',
             'ResourceRecordSet': {
@@ -86,7 +85,6 @@ class ChangeBatch:
 
     def delete(self, rrset):
         """delete operation"""
-
         change = {
             'Action': 'DELETE',
             'ResourceRecordSet': rrset
@@ -96,7 +94,9 @@ class ChangeBatch:
 
     def data(self):
         """return ChangeBatch data"""
-        return self.datadict
+        if self.datadict['Changes']:
+            return self.datadict
+        return None
 
 
 def name_to_zoneid(client, zonename):
@@ -192,3 +192,35 @@ def change_rrsets(client, zoneid, change_batch):
 
     if status(response) != 200:
         raise Exception("change_rrsets() failed: {}".format(response))
+
+
+def get_zone(client, zoneid):
+    """Get hosted zone information, given zoneid"""
+
+    response = client.get_hosted_zone(Id=zoneid)
+    if status(response) != 200:
+        raise Exception("get_hosted_zone() failed: {}".format(response))
+    return response['HostedZone']
+
+
+def empty_zone(client, zoneid, zonename=None):
+    """Delete all zone RRsets except the apex SOA and NS set"""
+
+    if zonename is None:
+        zonename = get_zone(zoneid)['Name']
+
+    change_batch = ChangeBatch()
+    for rrset in generator_rrsets(client, zoneid):
+        if (rrset['Name'] == zonename) and (rrset['Type'] in ['SOA', 'NS']):
+            continue
+        change_batch.delete(rrset)
+    if change_batch.data() is not None:
+        change_rrsets(client, zoneid, change_batch)
+
+
+def delete_zone(client, zoneid):
+    """Delete zone identified by given zoneid"""
+
+    response = client.delete_hosted_zone(Id=zoneid)
+    if status(response) != 200:
+        raise Exception("ERROR: zone deletion failed: {}".format(zoneid))
