@@ -130,3 +130,24 @@ def rrset_to_text(rrset):
                                                   rrset['Type'],
                                                   rdata))
     return "\n".join(rr_strings)
+
+
+def test_dns_answer(client, zoneid, qname, qtype):
+    """test DNS answer for R53 query name and type and given zoneid"""
+
+    response = client.test_dns_answer(
+        HostedZoneId=zoneid,
+        RecordName=qname,
+        RecordType=qtype)
+
+    if status(response) != 200:
+        raise Exception("test_dns_answer() error: {}".format(
+            response))
+
+    print("Answer from: {}".format(response['Nameserver']))
+    print("Protocol: {}".format(response['Protocol']))
+    print('')
+    for rdata in response['RecordData']:
+        print("{} IN {} {}".format(response['RecordName'],
+                                   response['RecordType'],
+                                   rdata))
