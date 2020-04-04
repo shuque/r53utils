@@ -167,3 +167,28 @@ def test_dns_answer(client, zoneid, qname, qtype):
         print("{} IN {} {}".format(response['RecordName'],
                                    response['RecordType'],
                                    rdata))
+
+
+def create_zone(client, zonename):
+    """Create zone in Route53; return zoneid, NS set, & caller_ref"""
+
+    caller_ref = get_caller_ref()
+    response = client.create_hosted_zone(Name=zonename,
+                                         CallerReference=caller_ref)
+    if status(response) != 201:
+        raise Exception("create_zone() {} failed".format(zonename))
+
+    return (response['HostedZone']['Id'],
+            response['DelegationSet']['NameServers'],
+            caller_ref)
+
+
+def change_rrsets(client, zoneid, change_batch):
+    """create/delete/update RRsets in a zone"""
+
+    response = client.change_resource_record_sets(
+        HostedZoneId=zoneid,
+        ChangeBatch=change_batch.data())
+
+    if status(response) != 200:
+        raise Exception("change_rrsets() failed: {}".format(response))
