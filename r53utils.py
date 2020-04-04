@@ -97,3 +97,36 @@ class ChangeBatch:
     def data(self):
         """return ChangeBatch data"""
         return self.datadict
+
+
+def get_rrset(client, zoneid, rrname, rrtype):
+    """given zoneid, get specified RRset by name and type"""
+
+    response = client.list_resource_record_sets(
+        HostedZoneId=zoneid,
+        StartRecordName=rrname,
+        StartRecordType=rrtype,
+        MaxItems='1')
+
+    if status(response) != 200:
+        raise Exception("list_resource_record_sets() error: {}".format(
+            response))
+
+    rrset0 = response['ResourceRecordSets'][0]
+    if rrname == rrset0['Name'] and rrtype == rrset0['Type']:
+        return rrset0
+    else:
+        raise Exception("RRset doesn't exist")
+
+
+def rrset_to_text(rrset):
+    """Return textual presentation form of RRset"""
+
+    rr_strings = []
+    for rdata_dict in rrset['ResourceRecords']:
+        rdata = rdata_dict['Value']
+        rr_strings.append("{} {} IN {} {}".format(rrset['Name'],
+                                                  rrset['TTL'],
+                                                  rrset['Type'],
+                                                  rdata))
+    return "\n".join(rr_strings)
