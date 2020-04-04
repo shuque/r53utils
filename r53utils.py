@@ -26,10 +26,10 @@ def status(http_response):
     return http_response['ResponseMetadata']['HTTPStatusCode']
 
 
-def generator_hosted_zones(client):
+def generator_hosted_zones(client, maxitems=MAXITEMS):
     """return generator over list of R53 hosted zones"""
 
-    kwargs = dict(MaxItems=MAXITEMS)
+    kwargs = dict(MaxItems=maxitems)
     while True:
         response = client.list_hosted_zones_by_name(**kwargs)
         if status(response) != 200:
@@ -44,10 +44,10 @@ def generator_hosted_zones(client):
             break
 
 
-def generator_rrsets(client, zoneid):
+def generator_rrsets(client, zoneid, maxitems=MAXITEMS):
     """return generator over rrsets in a given R53 zoneid"""
 
-    kwargs = dict(HostedZoneId=zoneid, MaxItems=MAXITEMS)
+    kwargs = dict(HostedZoneId=zoneid, MaxItems=maxitems)
     while True:
         response = client.list_resource_record_sets(**kwargs)
         if status(response) != 200:
@@ -66,7 +66,7 @@ class ChangeBatch:
     """Class to define a Route53 ChangeBatch structure"""
 
     def __init__(self):
-        self.data = {'Changes': []}
+        self.datadict = {'Changes': []}
         return
 
     def create(self, rrname, rrtype, ttl, rdatalist):
@@ -81,7 +81,7 @@ class ChangeBatch:
                 'ResourceRecords': [{'Value': x} for x in rdatalist]
             }
         }
-        self.data['Changes'].append(change)
+        self.datadict['Changes'].append(change)
 
 
     def delete(self, rrset):
@@ -91,4 +91,9 @@ class ChangeBatch:
             'Action': 'DELETE',
             'ResourceRecordSet': rrset
         }
-        self.data['Changes'].append(change)
+        self.datadict['Changes'].append(change)
+
+
+    def data(self):
+        """return ChangeBatch data"""
+        return self.datadict
