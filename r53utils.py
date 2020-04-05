@@ -26,7 +26,7 @@ def status(http_response):
     return http_response['ResponseMetadata']['HTTPStatusCode']
 
 
-def generator_hosted_zones(client, maxitems=MAXITEMS):
+def generator_zones(client, maxitems=MAXITEMS):
     """return generator over list of R53 hosted zones"""
 
     kwargs = dict(MaxItems=maxitems)
@@ -103,7 +103,7 @@ def name_to_zoneid(client, zonename):
     """Return zoneid for the given zone name"""
 
     zoneid_set = []
-    for zone in generator_hosted_zones(client):
+    for zone in generator_zones(client):
         if zone['Name'] == zonename:
             zoneid_set.append(zone['Id'])
     count = len(zoneid_set)
