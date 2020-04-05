@@ -66,8 +66,12 @@ class ChangeBatch:
     """Class to define a Route53 ChangeBatch structure"""
 
     def __init__(self):
-        self.datadict = {'Changes': []}
+        self.reset()
         return
+
+    def reset(self):
+        """reset changebatch"""
+        self.datadict = {'Changes': []}
 
     def create(self, rrname, rrtype, ttl, rdatalist):
         """create operation"""
@@ -82,6 +86,18 @@ class ChangeBatch:
         }
         self.datadict['Changes'].append(change)
 
+    def upsert(self, rrname, rrtype, ttl, rdatalist):
+        """upsert operation: create, or update if already exists"""
+        change = {
+            'Action': 'UPSERT',
+            'ResourceRecordSet': {
+                'Name': rrname,
+                'Type': rrtype,
+                'TTL': ttl,
+                'ResourceRecords': [{'Value': x} for x in rdatalist]
+            }
+        }
+        self.datadict['Changes'].append(change)
 
     def delete(self, rrset):
         """delete operation"""
@@ -90,7 +106,6 @@ class ChangeBatch:
             'ResourceRecordSet': rrset
         }
         self.datadict['Changes'].append(change)
-
 
     def data(self):
         """return ChangeBatch data"""
