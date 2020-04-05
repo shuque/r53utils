@@ -185,7 +185,10 @@ def test_dns_answer(client, zoneid, qname, qtype):
 
 
 def create_zone(client, zonename, private=False, vpcinfo=None):
-    """Create zone in Route53; return zoneid, NS set, & caller_ref"""
+    """
+    Create zone in Route53; private zones require vpc region and id;
+    Returns: zoneid, NS set, caller_ref, and change_info.
+    """
 
     caller_ref = get_caller_ref()
     kwargs = dict(Name=zonename, CallerReference=caller_ref)
@@ -203,7 +206,8 @@ def create_zone(client, zonename, private=False, vpcinfo=None):
 
     return (response['HostedZone']['Id'],
             response['DelegationSet']['NameServers'],
-            caller_ref)
+            caller_ref,
+            response['ChangeInfo'])
 
 
 def change_rrsets(client, zoneid, change_batch):
@@ -215,6 +219,8 @@ def change_rrsets(client, zoneid, change_batch):
 
     if status(response) != 200:
         raise Exception("change_rrsets() failed: {}".format(response))
+
+    return response['ChangeInfo']
 
 
 def get_zone(client, zoneid):
