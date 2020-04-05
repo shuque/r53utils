@@ -12,7 +12,7 @@ import os
 import sys
 import random
 import dns.name
-import r53utils
+from r53utils import get_client, ChangeBatch, change_rrsets, create_zone
 
 
 NS_TTL = 86400
@@ -42,11 +42,11 @@ class Zone:
 def add_delegation(r53client, parent, child, ttl=NS_TTL):
     """Add delegation NS record set in parent zone to child"""
 
-    cb = r53utils.ChangeBatch()
+    cb = ChangeBatch()
     cb.create(child.name.to_text(), 'NS', ttl, child.nsset)
 
     try:
-        r53utils.change_rrsets(r53client, parent.zoneid, cb)
+        change_rrsets(r53client, parent.zoneid, cb)
     except Exception as e:
         print("Adding delegation for {} failed: {}".format(
             child.name.to_text(), e))
@@ -94,14 +94,13 @@ if __name__ == '__main__':
             os.path.basename(sys.argv[0])))
         sys.exit(1)
 
-    client = r53utils.get_client()
+    client = get_client()
 
     zones = []
     for zone_name in sys.argv[1:]:
         zone_name = dns.name.from_text(zone_name)
         print("Creating zone: {}".format(zone_name))
-        zoneid, ns_set, caller_ref = r53utils.create_zone(client,
-                                                          zone_name.to_text())
+        zoneid, ns_set, caller_ref = create_zone(client, zone_name.to_text())
         zone = Zone(zone_name, zoneid, ns_set, caller_ref)
         zones.append(zone)
         zone.info()

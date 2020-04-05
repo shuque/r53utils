@@ -2,7 +2,7 @@
 #
 
 import sys
-import r53utils
+from r53utils import get_client, name_to_zoneid
 
 
 if __name__ == '__main__':
@@ -10,6 +10,6 @@ if __name__ == '__main__':
     zonename, = sys.argv[1:]
     if not zonename.endswith('.'):
         zonename += "."
-    client = r53utils.get_client()
-    print(r53utils.name_to_zoneid(client, zonename))
+    client = get_client()
+    print(name_to_zoneid(client, zonename))
 

@@ -2,11 +2,11 @@
 #
 
 import sys
-import r53utils
+from r53utils import get_client, test_dns_answer
 
 
 if __name__ == '__main__':
 
     zoneid, qname, qtype = sys.argv[1:]
-    client = r53utils.get_client()
-    r53utils.test_dns_answer(client, zoneid, qname, qtype)
+    client = get_client()
+    test_dns_answer(client, zoneid, qname, qtype)

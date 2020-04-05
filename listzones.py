@@ -6,13 +6,13 @@ Print all hosted Route53 zones in the current account.
 
 """
 
-import r53utils
+from r53utils import get_client, generator_zones
 
 
 if __name__ == '__main__':
 
-    client = r53utils.get_client()
-    for zone in r53utils.generator_hosted_zones(client):
+    client = get_client()
+    for zone in generator_zones(client):
         print("{} {} {} {}".format(
             zone['Name'],
             zone['Id'],

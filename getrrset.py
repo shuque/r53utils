@@ -2,7 +2,7 @@
 #
 
 import sys
-import r53utils
+from r53utils import get_client, get_rrset, rrset_to_text
 
 
 if __name__ == '__main__':
@@ -11,10 +11,10 @@ if __name__ == '__main__':
     if not qname.endswith('.'):
         qname += "."
 
-    client = r53utils.get_client()
+    client = get_client()
     try:
-        rrset = r53utils.get_rrset(client, zoneid, qname, qtype)
+        rrset = get_rrset(client, zoneid, qname, qtype)
     except Exception as e:
         print("Error: {}".format(e))
     else:
-        print(r53utils.rrset_to_text(rrset))
+        print(rrset_to_text(rrset))

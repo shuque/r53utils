@@ -3,25 +3,10 @@
 
 """
 Delete all Route53 zones given on the command line by name.
-
-Obtains a list of all Route53 zones, obtains the zoneid of any
-zone whose name matches one of the given names, then deletes that
-zone. Before deleting the zone, it inspects all RRsets within the
-zone and deletes all of them except the zone apex NS and SOA - a
-pre-requisite to Route53's zone deletion operation.
-
 """
 
 import sys
-import r53utils
-
-
-def delete_zone(r53client, zone, zoneid):
-    """Delete zone identified by given zoneid"""
-    r53utils.empty_zone(r53client, zoneid, zonename=zone)
-    r53utils.delete_zone(r53client, zoneid)
-    print("DELETED zone: {} {}".format(zone, zoneid))
-    return
+from r53utils import get_client, generator_zones, empty_zone, delete_zone
 
 
 if __name__ == '__main__':
@@ -32,7 +17,9 @@ if __name__ == '__main__':
             zonename += "."
         ZONES.append(zonename)
 
-    client = r53utils.get_client()
-    for zone in r53utils.generator_hosted_zones(client):
+    client = get_client()
+    for zone in generator_zones(client):
         if zone['Name'] in ZONES:
-            delete_zone(client, zone['Name'], zone['Id'])
+            empty_zone(client, zone['Id'], zonename=zone['Name'])
+            delete_zone(client, zone['Id'])
+            print("DELETED zone: {} {}".format(zone['Name'], zone['Id']))
