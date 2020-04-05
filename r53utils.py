@@ -184,12 +184,20 @@ def test_dns_answer(client, zoneid, qname, qtype):
                                    rdata))
 
 
-def create_zone(client, zonename):
+def create_zone(client, zonename, private=False, vpcinfo=None):
     """Create zone in Route53; return zoneid, NS set, & caller_ref"""
 
     caller_ref = get_caller_ref()
-    response = client.create_hosted_zone(Name=zonename,
-                                         CallerReference=caller_ref)
+    kwargs = dict(Name=zonename, CallerReference=caller_ref)
+    if private:
+        kwargs['HostedZoneConfig'] = {'PrivateZone': True}
+        try:
+            region, vpcid = vpcinfo
+        except:
+            raise Exception("vpc region and id must be specified")
+        kwargs['VPC'] = {'VPCRegion': region, 'VPCId': vpcid}
+
+    response = client.create_hosted_zone(**kwargs)
     if status(response) != 201:
         raise Exception("create_zone() {} failed".format(zonename))
 
