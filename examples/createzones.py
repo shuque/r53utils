@@ -100,7 +100,8 @@ if __name__ == '__main__':
     for zone_name in sys.argv[1:]:
         zone_name = dns.name.from_text(zone_name)
         print("Creating zone: {}".format(zone_name))
-        zoneid, ns_set, caller_ref = create_zone(client, zone_name.to_text())
+        zoneid, ns_set, caller_ref, change_info = create_zone(
+            client, zone_name.to_text())
         zone = Zone(zone_name, zoneid, ns_set, caller_ref)
         zones.append(zone)
         zone.info()
