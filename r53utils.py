@@ -4,6 +4,7 @@ Small library of routines to deal with Amazon Route53 operations.
 """
 
 import random
+import time
 import boto3
 
 
@@ -11,8 +12,13 @@ MAXITEMS = '100'
 CALLER_REF_PREFIX = "r53utils"
 
 
-def get_client():
+def get_client(creds=None):
     """get boto3 route53 client"""
+    if creds:
+        return boto3.client('route53',
+                            aws_access_key_id=creds['AccessKeyId'],
+                            aws_secret_access_key=creds['SecretAccessKey'],
+                            aws_session_token=creds['SessionToken'])
     return boto3.client('route53')
 
 
@@ -67,7 +73,6 @@ class ChangeBatch:
 
     def __init__(self):
         self.reset()
-        return
 
     def reset(self):
         """reset changebatch"""
@@ -124,10 +129,9 @@ def name_to_zoneid(client, zonename):
     count = len(zoneid_set)
     if count == 1:
         return zoneid_set[0]
-    elif count == 0:
+    if count == 0:
         raise Exception("Zone {} not found".format(zonename))
-    else:
-        raise Exception("Multiple zone ids found: {}".format(zoneid_set))
+    raise Exception("Multiple zone ids found: {}".format(zoneid_set))
 
 
 def get_rrset(client, zoneid, rrname, rrtype):
@@ -146,8 +150,7 @@ def get_rrset(client, zoneid, rrname, rrtype):
     rrset0 = response['ResourceRecordSets'][0]
     if rrname == rrset0['Name'] and rrtype == rrset0['Type']:
         return rrset0
-    else:
-        raise Exception("RRset doesn't exist")
+    raise Exception("RRset doesn't exist")
 
 
 def rrset_to_text(rrset):
@@ -184,6 +187,25 @@ def test_dns_answer(client, zoneid, qname, qtype):
                                    rdata))
 
 
+def wait_for_insync(client, changeid, polltime=5):
+    """
+    Given a changeid for a previously issued route53 operation, query
+    its status until it becomes in-sync, polling every 5 seconds by
+    default.
+    ChangeInfo: { 'Status': 'PENDING'|'INSYNC', ... }
+    """
+
+    is_done = False
+    while not is_done:
+        time.sleep(polltime)
+        response = client.get_change(Id=changeid)
+        if status(response) != 200:
+            continue
+        change_status = response['ChangeInfo']['Status']
+        if change_status == 'INSYNC':
+            is_done = True
+
+
 def create_zone(client, zonename, private=False, vpcinfo=None):
     """
     Create zone in Route53; private zones require vpc region and id;
@@ -196,13 +218,14 @@ def create_zone(client, zonename, private=False, vpcinfo=None):
         kwargs['HostedZoneConfig'] = {'PrivateZone': True}
         try:
             region, vpcid = vpcinfo
-        except:
-            raise Exception("vpc region and id must be specified")
+        except ValueError as vpc_info_missing:
+            raise ValueError("VPC region and id must be specified") from vpc_info_missing
         kwargs['VPC'] = {'VPCRegion': region, 'VPCId': vpcid}
 
     response = client.create_hosted_zone(**kwargs)
-    if status(response) != 201:
-        raise Exception("create_zone() {} failed".format(zonename))
+    if status(response) not in [200, 201]:
+        raise Exception("create_zone() {} failed: {}".format(zonename,
+                                                             response))
 
     return (response['HostedZone']['Id'],
             response['DelegationSet']['NameServers'],
@@ -236,20 +259,23 @@ def empty_zone(client, zoneid, zonename=None):
     """Delete all zone RRsets except the apex SOA and NS set"""
 
     if zonename is None:
-        zonename = get_zone(zoneid)['Name']
+        zonename = get_zone(client, zoneid)['Name']
 
     change_batch = ChangeBatch()
     for rrset in generator_rrsets(client, zoneid):
         if (rrset['Name'] == zonename) and (rrset['Type'] in ['SOA', 'NS']):
             continue
         change_batch.delete(rrset)
-    if change_batch.data() is not None:
-        change_rrsets(client, zoneid, change_batch)
+    if change_batch.data() is None:
+        return None
+    return change_rrsets(client, zoneid, change_batch)
 
 
 def delete_zone(client, zoneid):
-    """Delete zone identified by given zoneid"""
+    """Delete zone identified by given zoneid; return ChangeInfo"""
 
     response = client.delete_hosted_zone(Id=zoneid)
     if status(response) != 200:
-        raise Exception("ERROR: zone deletion failed: {}".format(zoneid))
+        raise Exception("ERROR: zone delete failed: {}: {}".format(zoneid,
+                                                                   response))
+    return response['ChangeInfo']

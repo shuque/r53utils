@@ -52,7 +52,7 @@ FUNCTIONS
         Returns: zoneid, NS set, caller_ref, and change_info.
     
     delete_zone(client, zoneid)
-        Delete zone identified by given zoneid
+        Delete zone identified by given zoneid; return ChangeInfo
     
     empty_zone(client, zoneid, zonename=None)
         Delete all zone RRsets except the apex SOA and NS set
@@ -66,7 +66,7 @@ FUNCTIONS
     get_caller_ref(prefix='r53utils')
         return caller reference string
     
-    get_client()
+    get_client(creds=None)
         get boto3 route53 client
     
     get_rrset(client, zoneid, rrname, rrtype)
@@ -87,8 +87,16 @@ FUNCTIONS
     test_dns_answer(client, zoneid, qname, qtype)
         test DNS answer for R53 query name and type and given zoneid
 
+    wait_for_insync(client, changeid, polltime=5)
+        Given a changeid for a previously issued route53 operation, query
+        its status until it becomes in-sync, polling every 5 seconds by
+        default.
+        ChangeInfo: { 'Status': 'PENDING'|'INSYNC', ... }
+
 DATA
     CALLER_REF_PREFIX = 'r53utils'
     MAXITEMS = '100'
 
+FILE
+    r53utils.py
 ```
