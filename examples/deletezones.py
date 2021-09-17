@@ -20,6 +20,10 @@ if __name__ == '__main__':
     client = get_client()
     for zone in generator_zones(client):
         if zone['Name'] in TO_DELETE:
-            empty_zone(client, zone['Id'], zonename=zone['Name'])
-            delete_zone(client, zone['Id'])
-            print("DELETED zone: {} {}".format(zone['Name'], zone['Id']))
+            try:
+                empty_zone(client, zone['Id'], zonename=zone['Name'])
+                delete_zone(client, zone['Id'])
+            except botocore.exceptions.ClientError as err:
+                print("ERROR:", err)
+            else:
+                print("DELETED zone: {} {}".format(zone['Name'], zone['Id']))

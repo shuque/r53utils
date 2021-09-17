@@ -12,7 +12,9 @@ import os
 import sys
 import random
 import dns.name
-from r53utils import get_client, ChangeBatch, change_rrsets, create_zone
+import botocore
+from r53utils import (get_client, ChangeBatch, change_rrsets,
+                      create_zone, R53Error)
 
 
 NS_TTL = 86400
@@ -47,9 +49,9 @@ def add_delegation(r53client, parent, child, ttl=NS_TTL):
 
     try:
         change_rrsets(r53client, parent.zoneid, cb)
-    except Exception as e:
+    except (R53Error, botocore.exceptions.ClientError) as err:
         print("Adding delegation for {} failed: {}".format(
-            child.name.to_text(), e))
+            child.name.to_text(), err))
 
 
 def in_zonelist(zonename, zonelist):
@@ -100,8 +102,12 @@ if __name__ == '__main__':
     for zone_name in sys.argv[1:]:
         zone_name = dns.name.from_text(zone_name)
         print("Creating zone: {}".format(zone_name))
-        zoneid, ns_set, caller_ref, change_info = create_zone(
-            client, zone_name.to_text())
+        try:
+            zoneid, ns_set, caller_ref, change_info = create_zone(
+                client, zone_name.to_text())
+        except botocore.exceptions.ClientError as err:
+            print("ERROR:", err)
+            continue
         zone = Zone(zone_name, zoneid, ns_set, caller_ref)
         zones.append(zone)
         zone.info()
