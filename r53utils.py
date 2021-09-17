@@ -1,6 +1,7 @@
 """
 Small library of routines to deal with Amazon Route53 operations.
 
+Author: Shumon Huque
 """
 
 import random
@@ -8,8 +9,13 @@ import time
 import boto3
 
 
+__version__ = "0.2"
+
 MAXITEMS = '100'
 CALLER_REF_PREFIX = "r53utils"
+
+class R53Error(Exception):
+    """R53Error Class"""
 
 
 def get_client(creds=None):
@@ -130,8 +136,8 @@ def name_to_zoneid(client, zonename):
     if count == 1:
         return zoneid_set[0]
     if count == 0:
-        raise Exception("Zone {} not found".format(zonename))
-    raise Exception("Multiple zone ids found: {}".format(zoneid_set))
+        raise R53Error("Zone {} not found".format(zonename))
+    raise R53Error("Multiple zone ids found: {}".format(zoneid_set))
 
 
 def get_rrset(client, zoneid, rrname, rrtype):
@@ -144,13 +150,13 @@ def get_rrset(client, zoneid, rrname, rrtype):
         MaxItems='1')
 
     if status(response) != 200:
-        raise Exception("list_resource_record_sets() error: {}".format(
+        raise R53Error("list_resource_record_sets() error: {}".format(
             response))
 
     rrset0 = response['ResourceRecordSets'][0]
     if rrname == rrset0['Name'] and rrtype == rrset0['Type']:
         return rrset0
-    raise Exception("RRset doesn't exist")
+    raise R53Error("RRset doesn't exist: {} {}".format(rrname, rrtype))
 
 
 def rrset_to_text(rrset):
@@ -175,7 +181,7 @@ def test_dns_answer(client, zoneid, qname, qtype):
         RecordType=qtype)
 
     if status(response) != 200:
-        raise Exception("test_dns_answer() error: {}".format(
+        raise R53Error("test_dns_answer() error: {}".format(
             response))
 
     print("Answer from: {}".format(response['Nameserver']))
@@ -219,12 +225,12 @@ def create_zone(client, zonename, private=False, vpcinfo=None):
         try:
             region, vpcid = vpcinfo
         except ValueError as vpc_info_missing:
-            raise ValueError("VPC region and id must be specified") from vpc_info_missing
+            raise R53Error("VPC region and id must be specified") from vpc_info_missing
         kwargs['VPC'] = {'VPCRegion': region, 'VPCId': vpcid}
 
     response = client.create_hosted_zone(**kwargs)
     if status(response) not in [200, 201]:
-        raise Exception("create_zone() {} failed: {}".format(zonename,
+        raise R53Error("create_zone() {} failed: {}".format(zonename,
                                                              response))
 
     return (response['HostedZone']['Id'],
@@ -241,7 +247,7 @@ def change_rrsets(client, zoneid, change_batch):
         ChangeBatch=change_batch.data())
 
     if status(response) != 200:
-        raise Exception("change_rrsets() failed: {}".format(response))
+        raise R53Error("change_rrsets() failed: {}".format(response))
 
     return response['ChangeInfo']
 
@@ -251,7 +257,7 @@ def get_zone(client, zoneid):
 
     response = client.get_hosted_zone(Id=zoneid)
     if status(response) != 200:
-        raise Exception("get_hosted_zone() failed: {}".format(response))
+        raise R53Error("get_hosted_zone() failed: {}".format(response))
     return response['HostedZone']
 
 
@@ -276,6 +282,6 @@ def delete_zone(client, zoneid):
 
     response = client.delete_hosted_zone(Id=zoneid)
     if status(response) != 200:
-        raise Exception("ERROR: zone delete failed: {}: {}".format(zoneid,
+        raise R53Error("ERROR: zone delete failed: {}: {}".format(zoneid,
                                                                    response))
     return response['ChangeInfo']
