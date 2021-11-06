@@ -9,7 +9,7 @@ import time
 import boto3
 
 
-__version__ = "0.2"
+__version__ = "0.2.1"
 
 MAXITEMS = '100'
 CALLER_REF_PREFIX = "r53utils"
@@ -30,7 +30,7 @@ def get_client(creds=None):
 
 def get_caller_ref(prefix=CALLER_REF_PREFIX):
     """return caller reference string"""
-    return "{}.{:05d}".format(prefix, random.randint(1, 10000))
+    return "{}.{:06d}".format(prefix, random.randint(1, 100000))
 
 
 def status(http_response):
@@ -233,8 +233,11 @@ def create_zone(client, zonename, private=False, vpcinfo=None):
         raise R53Error("create_zone() {} failed: {}".format(zonename,
                                                              response))
 
+    ns_set = response['DelegationSet']['NameServers'] \
+        if 'DelegationSet' in response else []
+
     return (response['HostedZone']['Id'],
-            response['DelegationSet']['NameServers'],
+            ns_set,
             caller_ref,
             response['ChangeInfo'])
 

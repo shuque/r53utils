@@ -171,4 +171,4 @@ DATA
     MAXITEMS = '100'
 
 VERSION
-    0.2
+    0.2.1
