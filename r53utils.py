@@ -7,9 +7,10 @@ Author: Shumon Huque
 import random
 import time
 import boto3
+import botocore.config
 
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 MAXITEMS = '100'
 CALLER_REF_PREFIX = "r53utils"
@@ -18,14 +19,23 @@ class R53Error(Exception):
     """R53Error Class"""
 
 
+botoconfig = botocore.config.Config(
+    retries = {
+        'total_max_attempts': 3,
+        'mode': 'standard'
+    }
+)
+
 def get_client(creds=None):
     """get boto3 route53 client"""
     if creds:
         return boto3.client('route53',
+                            config=botoconfig,
                             aws_access_key_id=creds['AccessKeyId'],
                             aws_secret_access_key=creds['SecretAccessKey'],
                             aws_session_token=creds['SessionToken'])
-    return boto3.client('route53')
+    return boto3.client('route53',
+                        config=botoconfig)
 
 
 def get_caller_ref(prefix=CALLER_REF_PREFIX):
