@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="r53utils",
-    version="0.2.2",
+    version="0.2.3",
     author="Shumon Huque",
     author_email="shuque@gmail.com",
     description="Small module to work with Amazon Route53 DNS",

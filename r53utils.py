@@ -10,7 +10,7 @@ import boto3
 import botocore.config
 
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 
 MAXITEMS = '100'
 CALLER_REF_PREFIX = "r53utils"
@@ -272,6 +272,20 @@ def get_zone(client, zoneid):
     if status(response) != 200:
         raise R53Error("get_hosted_zone() failed: {}".format(response))
     return response['HostedZone']
+
+
+def get_associated_vpcs(client, zoneid):
+    """
+    Get list of VPCs associated with private zoneid. Returns a list
+    of {VPCRegion:, VPCId:} dicts.
+    """
+
+    response = client.get_hosted_zone(Id=zoneid)
+    if status(response) != 200:
+        raise R53Error("get_hosted_zone() failed: {}".format(response))
+    if 'VPCs' not in response:
+        raise R53Error("No VPCs found for zoneid {}".format(zoneid))
+    return response['VPCs']
 
 
 def empty_zone(client, zoneid, zonename=None):
