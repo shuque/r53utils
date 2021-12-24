@@ -10,7 +10,7 @@ import boto3
 import botocore.config
 
 
-__version__ = "0.2.3"
+__version__ = "0.2.4"
 
 MAXITEMS = '100'
 CALLER_REF_PREFIX = "r53utils"
@@ -203,7 +203,7 @@ def test_dns_answer(client, zoneid, qname, qtype):
                                    rdata))
 
 
-def wait_for_insync(client, changeid, polltime=5):
+def wait_for_insync(client, changeid, polltime=5, timeout=120):
     """
     Given a changeid for a previously issued route53 operation, query
     its status until it becomes in-sync, polling every 5 seconds by
@@ -211,15 +211,16 @@ def wait_for_insync(client, changeid, polltime=5):
     ChangeInfo: { 'Status': 'PENDING'|'INSYNC', ... }
     """
 
-    is_done = False
-    while not is_done:
+    elapsed = 0
+    while True:
         time.sleep(polltime)
         response = client.get_change(Id=changeid)
-        if status(response) != 200:
-            continue
         change_status = response['ChangeInfo']['Status']
         if change_status == 'INSYNC':
-            is_done = True
+            return
+        elapsed += polltime
+        if elapsed >= timeout:
+            raise R53Error("timed out waiting for INSYNC")
 
 
 def create_zone(client, zonename, private=False, vpcinfo=None):
