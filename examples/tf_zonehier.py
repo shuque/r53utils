@@ -38,7 +38,6 @@ provider "aws" {
 }
 
 """)
-    return
 
 
 def create_zone(zonename):
@@ -55,7 +54,6 @@ resource "aws_route53_zone" "{}" {{
   name = "{}"
 }}
 """.format(resource_name, zonename_text))
-    return
 
 
 def add_delegation(parent, child, ttl=NS_TTL):

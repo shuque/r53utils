@@ -6,7 +6,9 @@ Delete all Route53 zones given on the command line by name.
 """
 
 import sys
-from r53utils import get_client, generator_zones, empty_zone, delete_zone
+from botocore.exceptions import ClientError
+from r53utils import (get_client, generator_zones,
+                      empty_zone, delete_zone, R53Error)
 
 
 if __name__ == '__main__':
@@ -23,7 +25,7 @@ if __name__ == '__main__':
             try:
                 empty_zone(client, zone['Id'], zonename=zone['Name'])
                 delete_zone(client, zone['Id'])
-            except botocore.exceptions.ClientError as err:
-                print("ERROR:", err)
+            except (R53Error, ClientError) as error:
+                print("ERROR:", error)
             else:
                 print("DELETED zone: {} {}".format(zone['Name'], zone['Id']))
