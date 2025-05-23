@@ -10,7 +10,7 @@ import boto3
 import botocore.config
 
 
-__version__ = "0.2.4"
+__version__ = "0.3.0"
 
 MAXITEMS = '100'
 CALLER_REF_PREFIX = "r53utils"
